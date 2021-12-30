@@ -5,6 +5,7 @@
 #include <atomic>
 #include <thread>
 #include <chrono>
+#include <array>
 
 enum GuessResult {
     DOES_NOT_EXIST = 0,
