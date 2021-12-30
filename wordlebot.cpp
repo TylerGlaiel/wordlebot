@@ -13,8 +13,6 @@ enum GuessResult {
     CORRECT = 2,
 };
 
-
-
 struct FiveLetterWord {
     char word[5];
     FiveLetterWord(std::string in = "     ") {
@@ -57,6 +55,9 @@ struct FiveLetterWord {
         return res;
     }
 };
+
+FiveLetterWord first_guess("ROATE");
+FiveLetterWord (*Strategy)(const std::vector<FiveLetterWord>&, const std::vector<FiveLetterWord>&, bool);
 
 typedef FiveLetterWord WordHint;
 
@@ -200,7 +201,7 @@ FiveLetterWord BestGuess_Complex(const std::vector<FiveLetterWord>& possible_gue
                     if(guess != actual) {
                         auto hint = evaluate_guess(guess, actual);
                         int score = FilteredWordListSize(hint, guess, possible_solutions);
-                        avg_score += score;//std::max(score, avg_score); 
+                        avg_score += score;
                     }
                 }
 
@@ -241,6 +242,88 @@ FiveLetterWord BestGuess_Complex(const std::vector<FiveLetterWord>& possible_gue
     return possible_guesses[best_index];
 }
 
+struct GuessRanking {
+    int max_score = INT_MAX;
+    int average_score = INT_MAX;
+    int best_score = INT_MAX;
+    int index = 0;
+
+    bool operator<(const GuessRanking& rhs) const {
+        if(max_score < rhs.max_score) return true;
+        if(max_score > rhs.max_score) return false;
+
+        if(average_score < rhs.average_score) return true;
+        if(average_score > rhs.average_score) return false;
+
+        if(best_score < rhs.best_score) return true;
+        if(best_score > rhs.best_score) return false;
+
+        return index < rhs.index;
+    }
+};
+
+FiveLetterWord BestGuess_MinMax(const std::vector<FiveLetterWord>& possible_guesses, const std::vector<FiveLetterWord>& possible_solutions, bool show_progress = true) {
+    constexpr int nthreads = 16;
+    std::array<GuessRanking, nthreads> best_guesses;
+
+    std::atomic<int> words_processed(0);
+    std::atomic<int> threads_done(0);
+    std::vector<std::thread> threads;
+
+    for(int threadindex = 0; threadindex<nthreads; threadindex++) {
+        threads.push_back(std::thread([&, threadindex]() {
+            for(int i = threadindex; i<possible_guesses.size(); i += nthreads) {
+                auto& guess = possible_guesses[i];
+                GuessRanking ranking = {0, 0, INT_MAX, i};
+
+                for(int j = 0; j<possible_solutions.size(); j++) {
+                    auto& actual = possible_solutions[j];
+                    if(guess != actual) {
+                        auto hint = evaluate_guess(guess, actual);
+                        int score = FilteredWordListSize(hint, guess, possible_solutions);
+                        if(score == 0) score = possible_solutions.size();
+                        ranking.average_score += score;
+                        ranking.max_score = std::max(score, ranking.max_score);
+                        ranking.best_score = std::min(score, ranking.best_score);
+                    } else {
+                        ranking.best_score = 0;
+                    }
+                }
+
+                if(ranking < best_guesses[threadindex]) {
+                    best_guesses[threadindex] = ranking;
+                }
+
+                ++words_processed;
+            }
+
+            ++threads_done;
+        }));
+    }
+
+    //wait for threads to finish
+    if(show_progress) {
+        while(threads_done != nthreads) {
+            std::cout << "guesses processed: " << words_processed << std::endl;
+            std::this_thread::sleep_for(std::chrono::milliseconds(250));
+        }
+    }
+
+    //join threads
+    for(auto& thread : threads) thread.join();
+
+    //select best word
+    GuessRanking best_guess = best_guesses[0];
+    for(int i = 1; i<nthreads; i++) {
+        if(best_guesses[i]<best_guess) {
+            best_guess = best_guesses[i];
+        }
+    }
+
+
+    return possible_guesses[best_guess.index];
+}
+
 std::vector<FiveLetterWord> LoadWordList(std::string filename) {
     std::vector<FiveLetterWord> res;
     std::ifstream file(filename);
@@ -254,15 +337,18 @@ std::vector<FiveLetterWord> LoadWordList(std::string filename) {
 
 FiveLetterWord BestGuess(const std::vector<FiveLetterWord>& possible_guesses, const std::vector<FiveLetterWord>& possible_solutions, bool show_progress = true) {
     if(possible_solutions.size() == 1) return possible_solutions[0];
-    return BestGuess_Complex(possible_guesses, possible_solutions, show_progress);
+    //return BestGuess_Complex(possible_guesses, possible_solutions, show_progress);
     //return BestGuess_Simple(possible_guesses, possible_solutions, show_progress);
+    //return BestGuess_MinMax(possible_guesses, possible_solutions, show_progress);
+
+    return Strategy(possible_guesses, possible_solutions, show_progress);
 }
 
 void WordleBot(bool recompute_initial_guess = false) {
     std::vector<FiveLetterWord> all_words = LoadWordList("wordlist_guesses.txt");
     std::vector<FiveLetterWord> possible_words = LoadWordList("wordlist_solutions.txt");
 
-    FiveLetterWord guess("ROATE");
+    FiveLetterWord guess = first_guess;
     if(recompute_initial_guess) guess = BestGuess(all_words, possible_words);
 
 
@@ -304,7 +390,7 @@ void WordleBot(bool recompute_initial_guess = false) {
 }
 
 int WordleGame(FiveLetterWord solution, const std::vector<FiveLetterWord>& all_words, const std::vector<FiveLetterWord>& possible_words, bool output = false) { //returns number of guesses needed to get the word
-    FiveLetterWord guess("ROATE");
+    FiveLetterWord guess = first_guess;
     std::vector<FiveLetterWord> solutions;
 
     int guesses = 0;
@@ -366,12 +452,21 @@ void WordleBenchmark() {
 }
 
 int main() {
+    first_guess = FiveLetterWord("RAISE");
+    Strategy = BestGuess_MinMax;
+
+    //first_guess = FiveLetterWord("ROATE");
+    //Strategy = BestGuess_Complex;
+
+    //first_guess = FiveLetterWord("SOARE");
+    //Strategy = BestGuess_Simple;
+    
     WordleBot();
-    //WordleBenchmark();
+   //WordleBenchmark();
 
     //std::vector<FiveLetterWord> all_words = LoadWordList("wordlist_guesses.txt");
     //std::vector<FiveLetterWord> possible_words = LoadWordList("wordlist_solutions.txt");
-    //WordleGame(FiveLetterWord("TAPIR"), all_words, possible_words, true);
+    //WordleGame(FiveLetterWord("GONER"), all_words, possible_words, true);
 
     return 0;
 }
