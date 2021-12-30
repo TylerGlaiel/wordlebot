@@ -201,6 +201,7 @@ FiveLetterWord BestGuess_Complex(const std::vector<FiveLetterWord>& possible_gue
                     if(guess != actual) {
                         auto hint = evaluate_guess(guess, actual);
                         int score = FilteredWordListSize(hint, guess, possible_solutions);
+                        if(score == 0) score = possible_solutions.size();
                         avg_score += score;
                     }
                 }
@@ -288,6 +289,8 @@ FiveLetterWord BestGuess_MinMax(const std::vector<FiveLetterWord>& possible_gues
                     } else {
                         ranking.best_score = 0;
                     }
+
+                    if(ranking.max_score > best_guesses[threadindex].max_score) break;
                 }
 
                 if(ranking < best_guesses[threadindex]) {
@@ -461,12 +464,12 @@ int main() {
     //first_guess = FiveLetterWord("SOARE");
     //Strategy = BestGuess_Simple;
     
-    WordleBot();
-   //WordleBenchmark();
+    WordleBot(true);
+    //WordleBenchmark();
 
     //std::vector<FiveLetterWord> all_words = LoadWordList("wordlist_guesses.txt");
     //std::vector<FiveLetterWord> possible_words = LoadWordList("wordlist_solutions.txt");
-    //WordleGame(FiveLetterWord("GONER"), all_words, possible_words, true);
+    //WordleGame(FiveLetterWord("TROLL"), all_words, possible_words, true);
 
     return 0;
 }
