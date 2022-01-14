@@ -17,7 +17,7 @@ enum GuessResult {
 struct FiveLetterWord {
     char word[5];
     FiveLetterWord(std::string in = "     ") {
-        if(in.size() != 5) throw ("word is not 5 letters: "+in);
+        if(in.size() != 5) throw std::runtime_error("word is not 5 letters: '"+in+"'");
         for(int i = 0; i<5; i++) word[i] = in[i];
     }
 
