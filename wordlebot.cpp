@@ -333,6 +333,7 @@ std::vector<FiveLetterWord> LoadWordList(std::string filename) {
     std::ifstream file(filename);
     std::string str;
     while(std::getline(file, str)) {
+        if(str[str.length()-1] == '\r') str.erase(str.length()-1);
         for(auto& c: str) c = toupper(c);
         res.push_back(str);
     }
