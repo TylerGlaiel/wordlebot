@@ -6,6 +6,7 @@
 #include <thread>
 #include <chrono>
 #include <array>
+#include <climits>
 
 enum GuessResult {
     DOES_NOT_EXIST = 0,
@@ -16,7 +17,7 @@ enum GuessResult {
 struct FiveLetterWord {
     char word[5];
     FiveLetterWord(std::string in = "     ") {
-        if(in.size() != 5) throw ("word is not 5 letters: "+in);
+        if(in.size() != 5) throw std::runtime_error("word is not 5 letters: '"+in+"'");
         for(int i = 0; i<5; i++) word[i] = in[i];
     }
 
@@ -332,6 +333,7 @@ std::vector<FiveLetterWord> LoadWordList(std::string filename) {
     std::ifstream file(filename);
     std::string str;
     while(std::getline(file, str)) {
+        if(str[str.length()-1] == '\r') str.erase(str.length()-1);
         for(auto& c: str) c = toupper(c);
         res.push_back(str);
     }

@@ -1,0 +1,3 @@
+LDLIBS		= -lpthread
+
+wordlebot:
