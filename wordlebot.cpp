@@ -6,6 +6,7 @@
 #include <thread>
 #include <chrono>
 #include <array>
+#include <climits>
 
 enum GuessResult {
     DOES_NOT_EXIST = 0,
